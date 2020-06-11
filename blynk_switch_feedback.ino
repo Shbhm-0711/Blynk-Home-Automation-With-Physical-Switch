@@ -1,194 +1,140 @@
-
-//Blynk Home Automation with Physical Button and ON OFF State Feedback
-
-
-#define BLYNK_PRINT Serial            
-#include <ESP8266WiFi.h>
-#include <BlynkSimpleEsp8266.h>
-#include <ESP8266mDNS.h>  // For OTA with ESP8266
-#include <WiFiUdp.h>  // For OTA
-#include <ArduinoOTA.h>  // For OTA
-
-
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
 BlynkTimer timer;
 
-void checkPhysicalButton();
 
-int relay1State = LOW;
-int pushButton1State = HIGH;
-
-int relay2State = LOW;
-int pushButton2State = HIGH;
-
-int relay3State = LOW;
-int pushButton3State = HIGH;
-
-int relay4State = LOW;
-int pushButton4State = HIGH;
-
-#define AUTH "---------------------------"  // You should get Auth Token in the Blynk App.  
-#define WIFI_SSID "------"                   //Enter Wifi Name
-#define WIFI_PASS "------"                   //Enter wifi Password
-
-#define SERVER "blynk-cloud.com "             // Comment-out if use Blynk hosted cloud service
-#define PORT 8442
-
-#define RELAY_PIN_1      12   //D6
-#define RELAY_PIN_2      16   //D0
-#define RELAY_PIN_3       4   //D2
-#define RELAY_PIN_4       5   //D1 
-
-#define PUSH_BUTTON_1     2   //D4
-#define PUSH_BUTTON_2    14   //D5
-#define PUSH_BUTTON_3    13   //D7
-#define PUSH_BUTTON_4     1   //TX
-
-#define VPIN_BUTTON_1    V12 
-#define VPIN_BUTTON_2    V13
-#define VPIN_BUTTON_3    V14
-#define VPIN_BUTTON_4    V15  
-
-#define OTA_HOSTNAME "Home_Automation"
+#define DEBUG_SW 0
 
 
-BLYNK_CONNECTED() {
+#define R1 6
 
-  // Request the latest state from the server
+#define R2 2
 
-  Blynk.syncVirtual(VPIN_BUTTON_1);
-  Blynk.syncVirtual(VPIN_BUTTON_2);
-   Blynk.syncVirtual(VPIN_BUTTON_3);
-  Blynk.syncVirtual(VPIN_BUTTON_4);
+#define R3 4
 
-  // Alternatively, you could override server state using:
- // Blynk.virtualWrite(VPIN_BUTTON_1, relay1State);
- // Blynk.virtualWrite(VPIN_BUTTON_2, relay2State);
- // Blynk.virtualWrite(VPIN_BUTTON_3, relay3State);
- // Blynk.virtualWrite(VPIN_BUTTON_4, relay4State);
+#define R4 5
 
-}
 
-// When App button is pushed - switch the state
+#define LED1 1
+#define Buzzer 0
 
-BLYNK_WRITE(VPIN_BUTTON_1) {
-  relay1State = param.asInt();
-  digitalWrite(RELAY_PIN_1, relay1State);
-}
 
-BLYNK_WRITE(VPIN_BUTTON_2) {
-  relay2State = param.asInt();
-  digitalWrite(RELAY_PIN_2, relay2State);
-}
-BLYNK_WRITE(VPIN_BUTTON_3) {
-  relay3State = param.asInt();
-  digitalWrite(RELAY_PIN_3, relay3State);
-}
-BLYNK_WRITE(VPIN_BUTTON_4) {
-  relay4State = param.asInt();
-  digitalWrite(RELAY_PIN_4, relay4State);
-}
 
-void checkPhysicalButton()
+int MODE = 0;
+
+
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "SSID";
+char pass[] = "PASS";
+
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+char auth[] = "AUTH TOKEN";
+
+
+int switch_ON_Flag1_previous_I = 0;
+int switch_ON_Flag2_previous_I = 0;
+int switch_ON_Flag3_previous_I = 0;
+int switch_ON_Flag4_previous_I = 0;
+
+
+BLYNK_WRITE(V1)
 {
-  if (digitalRead(PUSH_BUTTON_1) == LOW) {
-    // pushButton1State is used to avoid sequential toggles
-    if (pushButton1State != LOW) {
+  int pinValue = param.asInt(); // assigning incoming value from pin V1 to a variable
+  digitalWrite(R1, pinValue);
+  // process received value
+}
 
-      // Toggle Relay state
-      relay1State = !relay1State;
-      digitalWrite(RELAY_PIN_1, relay1State);
+BLYNK_WRITE(V2)
+{
+  int pinValue = param.asInt(); // assigning incoming value from pin V2 to a variable
+  digitalWrite(R2, pinValue);
+  // process received value
+}
 
-      // Update Button Widget
-      Blynk.virtualWrite(VPIN_BUTTON_1, relay1State);
-    }
-    pushButton1State = LOW;
-  } else {
-    pushButton1State = HIGH;
+BLYNK_WRITE(V3)
+{
+  int pinValue = param.asInt(); // assigning incoming value from pin V3 to a variable
+  digitalWrite(R3, pinValue);
+  // process received value
+}
+
+BLYNK_WRITE(V4)
+{
+  int pinValue = param.asInt(); // assigning incoming value from pin V4 to a variable
+  digitalWrite(R4, pinValue);
+  // process received value
+}
+
+
+
+
+
+void checkBlynk() { // called every 3 seconds by SimpleTimer
+
+  bool isconnected = Blynk.connected();
+  if (isconnected == false) {
+    MODE = 1;
+    digitalWrite(LED1, HIGH);
   }
-
-  if (digitalRead(PUSH_BUTTON_2) == LOW) {
-    // pushButton2State is used to avoid sequential toggles
-    if (pushButton2State != LOW) {
-
-      // Toggle Relay state
-      relay2State = !relay2State;
-      digitalWrite(RELAY_PIN_2, relay2State);
-
-      // Update Button Widget
-      Blynk.virtualWrite(VPIN_BUTTON_2, relay2State);
-    }
-    pushButton2State = LOW;
-  } else {
-    pushButton2State = HIGH;
-  }
-
-  if (digitalRead(PUSH_BUTTON_3) == LOW) {
-    // pushButton3State is used to avoid sequential toggles
-    if (pushButton3State != LOW) {
-
-      // Toggle Relay state
-      relay3State = !relay3State;
-      digitalWrite(RELAY_PIN_3, relay3State);
-
-      // Update Button Widget
-      Blynk.virtualWrite(VPIN_BUTTON_3, relay3State);
-    }
-    pushButton3State = LOW;
-  } else {
-    pushButton3State = HIGH;
-  }
-
-  if (digitalRead(PUSH_BUTTON_4) == LOW) {
-    // pushButton4State is used to avoid sequential toggles
-    if (pushButton4State != LOW) {
-
-      // Toggle Relay state
-      relay4State = !relay4State;
-      digitalWrite(RELAY_PIN_4, relay4State);
-
-      // Update Button Widget
-      Blynk.virtualWrite(VPIN_BUTTON_4, relay4State);
-    }
-    pushButton4State = LOW;
-  } else {
-    pushButton4State = HIGH;
+  if (isconnected == true) {
+    MODE = 0;
+    digitalWrite(LED1, HIGH);
   }
 }
 
 void setup()
 {
+  // Debug console
+  if (DEBUG_SW) Serial.begin(9600);
 
-  Serial.begin(115200);
-  Blynk.begin(AUTH, WIFI_SSID, WIFI_PASS,"blynk-cloud.com", 8442);
-  ArduinoOTA.setHostname(OTA_HOSTNAME);  // For OTA - Use your own device identifying name
-  ArduinoOTA.begin();  // For OTA
-
-  pinMode(RELAY_PIN_1, OUTPUT);
-  pinMode(PUSH_BUTTON_1, INPUT_PULLUP);
-  digitalWrite(RELAY_PIN_1, relay1State);
+  pinMode(R1, OUTPUT);
 
 
-  pinMode(RELAY_PIN_2, OUTPUT);
-  pinMode(PUSH_BUTTON_2, INPUT_PULLUP);
-  digitalWrite(RELAY_PIN_2, relay2State);
+  pinMode(R2, OUTPUT);
 
 
-  pinMode(RELAY_PIN_3, OUTPUT);
-  pinMode(PUSH_BUTTON_3, INPUT_PULLUP);
-  digitalWrite(RELAY_PIN_3, relay3State);
+  pinMode(R3, OUTPUT);
+
+ 
+  pinMode(R4, OUTPUT);
 
 
-  pinMode(RELAY_PIN_4, OUTPUT);
-  pinMode(PUSH_BUTTON_4, INPUT_PULLUP);
-  digitalWrite(RELAY_PIN_4, relay4State);
+  pinMode(LED1, OUTPUT);
+  pinMode(Buzzer, OUTPUT);
 
-  // Setup a function to be called every 100 ms
-  timer.setInterval(500L, checkPhysicalButton);
+  digitalWrite(LED1, HIGH);
+  delay(200);
+
+  digitalWrite(LED1, LOW);
+
+  digitalWrite(LED1, HIGH);
+
+  digitalWrite(LED1, LOW);
+  //pinMode(MODE, INPUT);
+  WiFi.begin(ssid, pass);
+  timer.setInterval(3000L, checkBlynk); // check if connected to Blynk server every 3 seconds
+  Blynk.config(auth);//, ssid, pass);
+
 }
 
 void loop()
 {
-  Blynk.run();
-  ArduinoOTA.handle();  // For OTA
-  timer.run();
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    if (DEBUG_SW) Serial.println("Not Connected");
+  }
+  else
+  {
+    if (DEBUG_SW) Serial.println(" Connected");
+    Blynk.run();
+  }
+
+  timer.run(); // Initiates SimpleTimer
+  if (MODE == 0)
+    with_internet();
+  else
+    without_internet();
 }
